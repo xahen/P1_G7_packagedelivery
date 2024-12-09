@@ -7,6 +7,10 @@
 
 // Binary tree
 void add_node_to_tree(node_t *new_node, tree_t *tree) {
+    if (new_node == NULL || tree == NULL) {
+        printf("New node is NULL!\n");
+        exit(EXIT_FAILURE);
+    }
     if (tree->root == NULL) {
         tree->root = new_node;
         return;
@@ -21,8 +25,7 @@ void add_node_to_tree_rec(node_t *new_node, node_t *tree_node) {
         } else {
             add_node_to_tree_rec(new_node, tree_node->left);
         }
-    }
-    if (new_node->f >= tree_node->f) {
+    } else { // Handles new_node->f >= tree_node->f
         if (tree_node->right == NULL) {
             tree_node->right = new_node;
         } else {
@@ -49,23 +52,19 @@ int check_in_tree(node_t *node, node_t *tree_root) {
         return 0;
     }
 
-    if (node->f < tree_root->f) {
-        if (tree_root->left == NULL) {
-            return 0;
-        }
-        return check_in_tree(node, tree_root->left);
-    }
-
-    if (node->f >= tree_root->f && node != tree_root) {
-        if (tree_root->right == NULL) {
-            return 0;
-        }
-        return check_in_tree(node, tree_root->right);
-    }
-
     if (node == tree_root) {
         return 1;
     }
+
+    // Traverse left or right depending on the value of node->f
+    if (node->f < tree_root->f) {
+        return check_in_tree(node, tree_root->left);
+    }
+
+    if (node->f >= tree_root->f) {
+        return check_in_tree(node, tree_root->right);
+    }
+
     return 0;
 }
 
@@ -221,39 +220,51 @@ void a_star(graph_t *graph, a_star_matrix_t *a_star_matrix, node_t start_node, n
 // First argument is the node that gets deleted.
 // The second argument is the tree that it gets deleted from. (might be unnecessary?)
 void remove_node_from_tree(node_t *node, tree_t *tree) {
-    // Use the find_successor() function to find the node that you will swap into the deleted node's space.
-    node_t *successor = find_successor(node);
-
-    if (successor != NULL) {
-        // Set successors left node to the deleted nodes left.
-        successor->left = node->left;
+    if (node == NULL) {
+        return; // Nothing to remove if node is null
+    }
+    // Case 1: Node has no children
+    if (node->left == NULL && node->right == NULL) {
         node_t *parent = find_parent(node, tree);
-        if (parent != NULL) {
+        if (parent) {
             if (parent->left == node) {
-                parent->left = node->right;
+                parent->left = NULL;
             } else {
-                parent->right = node->right;
+                parent->right = NULL;
             }
         } else {
-            tree->root = node->right;
+            tree->root = NULL; // Node is root
         }
+        free(node);
+        return;
 
-        // Reset the deleted node's pointers
-        node->left = NULL;
-        node->parent = NULL;
-        node->right = NULL;
-    } else {
-        // Use the find_parent() function to find the parent to the deleted node, you can now set a null pointer for it.
+    // Case 2: Node has only one child
+    } else if (node->left == NULL || node->right == NULL) {
+        node_t *child = (node->left != NULL) ? node->left : node->right;
         node_t *parent = find_parent(node, tree);
-
-        // find_parent() returns NULL if the root node was given as its argument.
-        if (parent != NULL) {
-            // Set the pointer for the deleted node to NULL.
-            if (parent->right == node) parent->right = NULL;
-            else parent->left = NULL;
+        if (parent) {
+            if (parent->left == node) {
+                parent->left = child;
+            } else {
+                parent->right = child;
+            }
         } else {
-            tree->root = NULL;
+            tree->root = child; // Root is child
         }
+        free(node);
+        return;
+    }
+    // Case 3: Node has two children
+    // Replace the node with its in-order successor
+    node_t *successor = find_successor(node);
+    if (successor != NULL) {
+        // Copy successor's values into the current node
+        node->f = successor->f;
+        node->location_x = successor->location_x;
+        node->location_y = successor->location_y;
+
+        // Recursively remove the successor node
+        remove_node_from_tree(successor, tree);
     }
 }
 
@@ -266,7 +277,6 @@ node_t *find_successor(node_t *node) {
     while (node != NULL && node->left != NULL) {
         node = node->left;
     }
-
     return node;
 }
 
@@ -285,6 +295,5 @@ node_t *find_parent(node_t *node, tree_t *tree) {
             parent = parent->right;
         }
     }
-
     return parent;
 }
